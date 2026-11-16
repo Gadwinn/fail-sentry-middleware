@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace G\FailSentryMiddleware\Tests\Storages;
+namespace G\FailSentryMiddleware\Tests\Storage;
 
-use G\FailSentryMiddleware\Storages\FileStorage;
+use G\FailSentryMiddleware\Storage\FileStorage;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
