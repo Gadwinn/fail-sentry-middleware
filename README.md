@@ -43,10 +43,11 @@ $middleware = new FailSentryMiddleware(
 	maxAttempts: 5,
 	blockTtl: 3600,
 	failureTtl: 900,
-	failureCodes: [400, 401, 403, 404, 405, 422, 429],
+	failureCodes: [400, 401, 403, 405, 422, 429],
 	whitelistedIps: ['127.0.0.1', '10.0.0.0/8'],
 	trustedProxies: ['192.168.1.10', '172.16.0.0/12'],
 	failOpenOnStorageError: true,
+	resetOnSuccess: false,
 );
 ```
 
@@ -122,7 +123,8 @@ $middleware = new FailSentryMiddleware(
 - Proxy headers (`X-Forwarded-For`, `X-Real-IP`) are used only when `REMOTE_ADDR` is a trusted proxy.
 - Invalid IP values are ignored to reduce spoofing and malformed input risks.
 - IP addresses are compared and stored in canonical form (`0:0:0:0:0:0:0:1` and `::1` are the same address).
-- A non-failure response resets the failure counter of the IP: only *consecutive* failures lead to a block.
+- Failures expire with `failureTtl` only: a valid request slipped between attempts does not clear them. Pass `resetOnSuccess: true` to count *consecutive* failures instead (friendlier, but easier to evade).
+- `404` is not a failure by default (a missing favicon or a dead link would block ordinary visitors): add it to `failureCodes` in a dedicated sentry with a high `maxAttempts` to catch scanners, as shown above.
 - Blocked responses return `429` with `Retry-After` and `Cache-Control: no-store` headers.
 
 ## Storage Backend Contract

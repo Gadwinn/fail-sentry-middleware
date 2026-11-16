@@ -42,6 +42,10 @@ class FailSentryMiddleware implements MiddlewareInterface
      * @param bool                                     $failOpenOnStorageError
      *   When true (default): pass through on unresolvable IP or storage error.
      *   When false: block on any uncertainty (unresolvable IP or storage error).
+     * @param bool                                     $resetOnSuccess
+     *   When true: a non-failure response clears the failures of the IP, so only consecutive
+     *   failures lead to a block. When false (default): failures only expire with $failureTtl,
+     *   so valid requests slipped between attempts do not help an attacker.
      */
     public function __construct(
         private readonly StorageInterface $storage,
@@ -49,11 +53,12 @@ class FailSentryMiddleware implements MiddlewareInterface
         private readonly int $maxAttempts = 5,
         private readonly int $blockTtl = 3600,
         private readonly int $failureTtl = 3600,
-        private readonly array $failureCodes = [400, 401, 403, 404, 405, 422, 429],
+        private readonly array $failureCodes = [400, 401, 403, 405, 422, 429],
         private readonly \Closure|null $failureDetector = null,
         private readonly array $whitelistedIps = [],
         private readonly array $trustedProxies = [],
         private readonly bool $failOpenOnStorageError = true,
+        private readonly bool $resetOnSuccess = false,
     ) {
         if ($this->maxAttempts < 1) {
             throw new InvalidArgumentException('maxAttempts must be greater than 0.');
@@ -124,7 +129,9 @@ class FailSentryMiddleware implements MiddlewareInterface
             return $response;
         }
 
-        $this->safeResetFailures($ip);
+        if ($this->resetOnSuccess) {
+            $this->safeResetFailures($ip);
+        }
 
         return $response;
     }
