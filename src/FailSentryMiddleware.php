@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace G\FailSentryMiddleware;
 
-use G\FailSentryMiddleware\Storages\StorageInterface;
+use G\FailSentryMiddleware\Storage\StorageInterface;
 use InvalidArgumentException;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;

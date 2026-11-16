@@ -33,7 +33,7 @@ composer require gadwinn/fail-sentry-middleware
 declare(strict_types=1);
 
 use G\FailSentryMiddleware\FailSentryMiddleware;
-use G\FailSentryMiddleware\Storages\FileStorage;
+use G\FailSentryMiddleware\Storage\FileStorage;
 $storage = new FileStorage(__DIR__ . '/var/fail-sentry.json');
 $responseFactory = /* any PSR-17 ResponseFactoryInterface */;
 
@@ -61,7 +61,7 @@ You can stack several `FailSentryMiddleware` instances in your PSR-15 pipeline t
 declare(strict_types=1);
 
 use G\FailSentryMiddleware\FailSentryMiddleware;
-use G\FailSentryMiddleware\Storages\FileStorage;
+use G\FailSentryMiddleware\Storage\FileStorage;
 $responseFactory = /* any PSR-17 ResponseFactoryInterface */;
 
 // Aggressive rate-limit abuse: block after 5 × 429 within 15 minutes

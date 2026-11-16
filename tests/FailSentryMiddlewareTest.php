@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace G\FailSentryMiddleware\Tests;
 
 use G\FailSentryMiddleware\FailSentryMiddleware;
-use G\FailSentryMiddleware\Storages\StorageInterface;
+use G\FailSentryMiddleware\Storage\StorageInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
