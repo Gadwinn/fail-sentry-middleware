@@ -48,7 +48,24 @@ $middleware = new FailSentryMiddleware(
 	trustedProxies: ['192.168.1.10', '172.16.0.0/12'],
 	failOpenOnStorageError: true,
 	resetOnSuccess: false,
+	ipAttribute: null,
 );
+```
+
+### Client IP resolved upstream
+
+When the client IP is already resolved by a middleware placed before this one, such as
+[`gadwinn/trusted-proxy-middleware`](https://github.com/Gadwinn/trusted-proxy-middleware),
+pass the name of its request attribute. A valid IP found there replaces the internal
+resolution; without it (attribute missing or invalid), `REMOTE_ADDR` and `trustedProxies`
+are used as usual.
+
+```php
+$pipeline = [
+	new TrustedProxyMiddleware(['172.18.0.0/16']),          // sets the 'client_ip' attribute
+	new FailSentryMiddleware($storage, $responseFactory, ipAttribute: 'client_ip'),
+	// ...
+];
 ```
 
 ## Stacking Multiple Sentries
@@ -119,7 +136,7 @@ $middleware = new FailSentryMiddleware(
 
 ## Security Notes
 
-- Client IP is resolved from `REMOTE_ADDR` by default.
+- Client IP is resolved from `REMOTE_ADDR` by default, or read from the `ipAttribute` request attribute when configured (the middleware which sets it must be trusted).
 - Proxy headers (`X-Forwarded-For`, `X-Real-IP`) are used only when `REMOTE_ADDR` is a trusted proxy.
 - Invalid IP values are ignored to reduce spoofing and malformed input risks.
 - IP addresses are compared and stored in canonical form (`0:0:0:0:0:0:0:1` and `::1` are the same address).

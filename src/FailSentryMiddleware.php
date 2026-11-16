@@ -46,6 +46,10 @@ class FailSentryMiddleware implements MiddlewareInterface
      *   When true: a non-failure response clears the failures of the IP, so only consecutive
      *   failures lead to a block. When false (default): failures only expire with $failureTtl,
      *   so valid requests slipped between attempts do not help an attacker.
+     * @param string|null                              $ipAttribute
+     *   Name of a request attribute holding the client IP already resolved upstream (e.g.
+     *   'client_ip' set by gadwinn/trusted-proxy-middleware). When the request carries a valid IP
+     *   in that attribute, it replaces the internal resolution (REMOTE_ADDR and trusted proxies).
      */
     public function __construct(
         private readonly StorageInterface $storage,
@@ -59,6 +63,7 @@ class FailSentryMiddleware implements MiddlewareInterface
         private readonly array $trustedProxies = [],
         private readonly bool $failOpenOnStorageError = true,
         private readonly bool $resetOnSuccess = false,
+        private readonly ?string $ipAttribute = null,
     ) {
         if ($this->maxAttempts < 1) {
             throw new InvalidArgumentException('maxAttempts must be greater than 0.');
@@ -140,12 +145,22 @@ class FailSentryMiddleware implements MiddlewareInterface
      * Resolves the client IP address, reading proxy headers only when the direct
      * connection comes from a trusted proxy, to prevent IP spoofing.
      *
+     * A valid IP found in the $ipAttribute request attribute, when configured, wins.
      * Returns null when REMOTE_ADDR is absent or not a valid IP address.
      * When behind a trusted proxy and all XFF candidates are trusted proxies or
      * invalid, falls back to X-Real-IP then to the REMOTE_ADDR of the proxy itself.
      */
     private function resolveIp(ServerRequestInterface $request): ?string
     {
+        if ($this->ipAttribute !== null) {
+            $attribute = $request->getAttribute($this->ipAttribute);
+            $resolved = is_string($attribute) ? $this->normalizeIp($attribute) : null;
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
         $serverParams = $request->getServerParams();
         $remoteAddrRaw = $serverParams['REMOTE_ADDR'] ?? null;
         $remoteAddr = is_string($remoteAddrRaw) ? trim($remoteAddrRaw) : '';
