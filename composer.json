@@ -65,5 +65,8 @@
         "allow-plugins": {
             "phpdocumentor/shim": true
         }
+    },
+    "suggest": {
+        "gadwinn/trusted-proxy-middleware": "Resolves the client IP behind reverse proxies; pass its attribute name as $ipAttribute"
     }
 }

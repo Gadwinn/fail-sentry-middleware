@@ -543,4 +543,70 @@ class FailSentryMiddlewareTest extends TestCase
 
         $this->assertSame($notFound, $middleware->process($this->request, $this->handler));
     }
+
+    // --- ipAttribute
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    private function requestWithAttributes(string $remoteAddr, array $attributes): ServerRequestInterface
+    {
+        $request = $this->createStub(ServerRequestInterface::class);
+        $request->method('getServerParams')->willReturn(['REMOTE_ADDR' => $remoteAddr]);
+        $request->method('getHeaderLine')->willReturn('');
+        $request->method('getAttribute')->willReturnCallback(
+            static fn (string $name, mixed $default = null): mixed => $attributes[$name] ?? $default
+        );
+
+        return $request;
+    }
+
+    public function testIpAttributeReplacesTheInternalResolution(): void
+    {
+        $response = $this->createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+
+        $this->storage->expects($this->once())->method('isBlocked')->with('2001:db8::1')->willReturn(false);
+        $this->handler->expects($this->atLeastOnce())->method('handle')->willReturn($response);
+
+        $middleware = new FailSentryMiddleware(
+            storage: $this->storage,
+            responseFactory: $this->responseFactory,
+            ipAttribute: 'client_ip',
+        );
+
+        $middleware->process($this->requestWithAttributes('10.0.0.1', ['client_ip' => '2001:DB8:0::1']), $this->handler);
+    }
+
+    public function testIpAttributeIsIgnoredWhenMissingOrInvalid(): void
+    {
+        $response = $this->createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+
+        $this->storage->expects($this->exactly(3))->method('isBlocked')->with('10.0.0.1')->willReturn(false);
+        $this->handler->expects($this->atLeastOnce())->method('handle')->willReturn($response);
+
+        $middleware = new FailSentryMiddleware(
+            storage: $this->storage,
+            responseFactory: $this->responseFactory,
+            ipAttribute: 'client_ip',
+        );
+
+        foreach ([[], ['client_ip' => 'not-an-ip'], ['client_ip' => 42]] as $attributes) {
+            $middleware->process($this->requestWithAttributes('10.0.0.1', $attributes), $this->handler);
+        }
+    }
+
+    public function testIpAttributeIsNotReadWhenNotConfigured(): void
+    {
+        $response = $this->createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+
+        $this->storage->expects($this->once())->method('isBlocked')->with('10.0.0.1')->willReturn(false);
+        $this->handler->expects($this->atLeastOnce())->method('handle')->willReturn($response);
+
+        $middleware = new FailSentryMiddleware(storage: $this->storage, responseFactory: $this->responseFactory);
+
+        $middleware->process($this->requestWithAttributes('10.0.0.1', ['client_ip' => '1.2.3.4']), $this->handler);
+    }
 }
