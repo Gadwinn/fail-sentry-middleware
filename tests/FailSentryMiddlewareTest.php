@@ -107,7 +107,7 @@ class FailSentryMiddlewareTest extends TestCase
         $this->storage->expects($this->once())->method('resetFailures')->with('1.2.3.4');
         $this->storage->expects($this->never())->method('addFailure');
 
-        $middleware = new FailSentryMiddleware($this->storage, $this->responseFactory);
+        $middleware = new FailSentryMiddleware($this->storage, $this->responseFactory, resetOnSuccess: true);
 
         $result = $middleware->process($this->request, $this->handler);
 
@@ -117,7 +117,7 @@ class FailSentryMiddlewareTest extends TestCase
     public function testFailedResponseIncrementsCounterAndReturnsOriginalResponse(): void
     {
         $failResponse = $this->createStub(ResponseInterface::class);
-        $failResponse->method('getStatusCode')->willReturn(404);
+        $failResponse->method('getStatusCode')->willReturn(401);
 
         $this->storage->expects($this->atLeastOnce())->method('isBlocked')->willReturn(false);
         $this->handler->expects($this->atLeastOnce())->method('handle')->willReturn($failResponse);
@@ -237,7 +237,7 @@ class FailSentryMiddlewareTest extends TestCase
         $this->handler->expects($this->atLeastOnce())->method('handle')->willReturn($response);
         $this->storage->expects($this->once())->method('resetFailures')->with('1.2.3.4');
 
-        $middleware = new FailSentryMiddleware($this->storage, $this->responseFactory);
+        $middleware = new FailSentryMiddleware($this->storage, $this->responseFactory, resetOnSuccess: true);
 
         $middleware->process($this->request, $this->handler);
     }
@@ -262,6 +262,7 @@ class FailSentryMiddlewareTest extends TestCase
             storage: $this->storage,
             responseFactory: $this->responseFactory,
             trustedProxies: ['10.0.0.1'],
+            resetOnSuccess: true,
         );
 
         $middleware->process($request, $this->handler);
@@ -287,6 +288,7 @@ class FailSentryMiddlewareTest extends TestCase
             storage: $this->storage,
             responseFactory: $this->responseFactory,
             trustedProxies: ['10.0.0.1'],
+            resetOnSuccess: true,
         );
 
         $middleware->process($request, $this->handler);
@@ -313,6 +315,7 @@ class FailSentryMiddlewareTest extends TestCase
             storage: $this->storage,
             responseFactory: $this->responseFactory,
             trustedProxies: ['10.0.0.1'],
+            resetOnSuccess: true,
         );
 
         $middleware->process($request, $this->handler);
@@ -338,6 +341,7 @@ class FailSentryMiddlewareTest extends TestCase
             storage: $this->storage,
             responseFactory: $this->responseFactory,
             trustedProxies: ['10.0.0.0/8'],
+            resetOnSuccess: true,
         );
 
         $middleware->process($request, $this->handler);
@@ -505,5 +509,38 @@ class FailSentryMiddlewareTest extends TestCase
 
             $this->assertSame($this->blockedResponse, $middleware->process($this->request, $this->handler));
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Defaults
+    // -------------------------------------------------------------------------
+
+    public function testSuccessfulResponseDoesNotResetFailuresByDefault(): void
+    {
+        $successResponse = $this->createStub(ResponseInterface::class);
+        $successResponse->method('getStatusCode')->willReturn(200);
+
+        $this->storage->expects($this->once())->method('isBlocked')->willReturn(false);
+        $this->handler->expects($this->once())->method('handle')->willReturn($successResponse);
+        $this->storage->expects($this->never())->method('resetFailures');
+        $this->storage->expects($this->never())->method('addFailure');
+
+        $middleware = new FailSentryMiddleware($this->storage, $this->responseFactory);
+
+        $this->assertSame($successResponse, $middleware->process($this->request, $this->handler));
+    }
+
+    public function testNotFoundIsNotAFailureByDefault(): void
+    {
+        $notFound = $this->createStub(ResponseInterface::class);
+        $notFound->method('getStatusCode')->willReturn(404);
+
+        $this->storage->expects($this->once())->method('isBlocked')->willReturn(false);
+        $this->handler->expects($this->once())->method('handle')->willReturn($notFound);
+        $this->storage->expects($this->never())->method('addFailure');
+
+        $middleware = new FailSentryMiddleware($this->storage, $this->responseFactory);
+
+        $this->assertSame($notFound, $middleware->process($this->request, $this->handler));
     }
 }
