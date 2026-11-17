@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace G\FailSentryMiddleware\Storages;
+namespace G\FailSentryMiddleware\Storage;
 
 use JsonException;
 use RuntimeException;

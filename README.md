@@ -33,7 +33,7 @@ composer require gadwinn/fail-sentry-middleware
 declare(strict_types=1);
 
 use G\FailSentryMiddleware\FailSentryMiddleware;
-use G\FailSentryMiddleware\Storages\FileStorage;
+use G\FailSentryMiddleware\Storage\FileStorage;
 $storage = new FileStorage(__DIR__ . '/var/fail-sentry.json');
 $responseFactory = /* any PSR-17 ResponseFactoryInterface */;
 
@@ -43,11 +43,29 @@ $middleware = new FailSentryMiddleware(
 	maxAttempts: 5,
 	blockTtl: 3600,
 	failureTtl: 900,
-	failureCodes: [400, 401, 403, 404, 405, 422, 429],
+	failureCodes: [400, 401, 403, 405, 422, 429],
 	whitelistedIps: ['127.0.0.1', '10.0.0.0/8'],
 	trustedProxies: ['192.168.1.10', '172.16.0.0/12'],
 	failOpenOnStorageError: true,
+	resetOnSuccess: false,
+	ipAttribute: null,
 );
+```
+
+### Client IP resolved upstream
+
+When the client IP is already resolved by a middleware placed before this one, such as
+[`gadwinn/trusted-proxy-middleware`](https://github.com/Gadwinn/trusted-proxy-middleware),
+pass the name of its request attribute. A valid IP found there replaces the internal
+resolution; without it (attribute missing or invalid), `REMOTE_ADDR` and `trustedProxies`
+are used as usual.
+
+```php
+$pipeline = [
+	new TrustedProxyMiddleware(['172.18.0.0/16']),          // sets the 'client_ip' attribute
+	new FailSentryMiddleware($storage, $responseFactory, ipAttribute: 'client_ip'),
+	// ...
+];
 ```
 
 ## Stacking Multiple Sentries
@@ -60,7 +78,7 @@ You can stack several `FailSentryMiddleware` instances in your PSR-15 pipeline t
 declare(strict_types=1);
 
 use G\FailSentryMiddleware\FailSentryMiddleware;
-use G\FailSentryMiddleware\Storages\FileStorage;
+use G\FailSentryMiddleware\Storage\FileStorage;
 $responseFactory = /* any PSR-17 ResponseFactoryInterface */;
 
 // Aggressive rate-limit abuse: block after 5 × 429 within 15 minutes
@@ -118,11 +136,12 @@ $middleware = new FailSentryMiddleware(
 
 ## Security Notes
 
-- Client IP is resolved from `REMOTE_ADDR` by default.
+- Client IP is resolved from `REMOTE_ADDR` by default, or read from the `ipAttribute` request attribute when configured (the middleware which sets it must be trusted).
 - Proxy headers (`X-Forwarded-For`, `X-Real-IP`) are used only when `REMOTE_ADDR` is a trusted proxy.
 - Invalid IP values are ignored to reduce spoofing and malformed input risks.
 - IP addresses are compared and stored in canonical form (`0:0:0:0:0:0:0:1` and `::1` are the same address).
-- A non-failure response resets the failure counter of the IP: only *consecutive* failures lead to a block.
+- Failures expire with `failureTtl` only: a valid request slipped between attempts does not clear them. Pass `resetOnSuccess: true` to count *consecutive* failures instead (friendlier, but easier to evade).
+- `404` is not a failure by default (a missing favicon or a dead link would block ordinary visitors): add it to `failureCodes` in a dedicated sentry with a high `maxAttempts` to catch scanners, as shown above.
 - Blocked responses return `429` with `Retry-After` and `Cache-Control: no-store` headers.
 
 ## Storage Backend Contract
@@ -142,3 +161,7 @@ Any backend must implement:
 ```bash
 composer test-all
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
