@@ -161,3 +161,7 @@ Any backend must implement:
 ```bash
 composer test-all
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
